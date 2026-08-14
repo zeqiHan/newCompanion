@@ -1,0 +1,18 @@
+.DS_Store
+node_modules/
+dist/
+pipeline/.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.env
+.env.*
+models/
+*.gguf
+.cache/
+ui/dist/
+
+# Prebuilt llama.cpp binaries (download via scripts)
+tools/llama.cpp/
+tools/llama-macos-arm64.tar.gz

@@ -1,0 +1,22 @@
+# Core server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+websockets>=14.0
+pydantic>=2.9.0
+pyyaml>=6.0.2
+numpy>=2.1.0,<2.3
+sounddevice>=0.5.1
+soundfile>=0.12.1
+aiohttp>=3.10.0
+pillow>=11.0.0
+psutil>=6.0.0
+
+
+# Local speech stack (Apple Silicon)
+mlx>=0.22.0
+mlx-lm>=0.22.0
+mlx-whisper>=0.4.0
+mlx-audio>=0.4.0
+silero-vad>=5.0.0
+torch>=2.2.0
+torchaudio>=2.2.0

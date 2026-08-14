@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>local.newcompanion.mac-stt</string>
+  <key>CFBundleName</key>
+  <string>MacSTT</string>
+  <key>CFBundleDisplayName</key>
+  <string>MacSTT</string>
+  <key>CFBundleExecutable</key>
+  <string>mac_stt</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleVersion</key>
+  <string>1.0.1</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.1</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>13.0</string>
+  <key>LSUIElement</key>
+  <false/>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>newCompanion 使用 macOS 语音识别把说话转成文字。</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>newCompanion 需要麦克风进行语音对话。</string>
+</dict>
+</plist>

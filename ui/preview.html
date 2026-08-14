@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小遥 · newCompanion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #e8eef6;
+      --muted: rgba(232, 238, 246, 0.62);
+      --accent: #3ec7d6;
+      --accent-2: #7ae0c8;
+      --glass: rgba(10, 16, 22, 0.42);
+      --font-display: "Noto Serif SC", "Songti SC", serif;
+      --font-ui: "Sora", "PingFang SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--font-ui); color: var(--ink);
+      background: radial-gradient(120% 80% at 70% 20%, rgba(62,199,214,.16), transparent 55%),
+                  radial-gradient(90% 70% at 20% 90%, rgba(122,224,200,.1), transparent 50%),
+                  linear-gradient(160deg, #071018 0%, #101a24 48%, #0b1219 100%); }
+    .app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+    .chrome { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px 8px; z-index: 3; }
+    .brand { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
+    .brand span { display: block; margin-top: 4px; font-family: var(--font-ui); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn { appearance: none; border: 1px solid rgba(232,238,246,.14); background: rgba(255,255,255,.04); color: var(--ink); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .78rem; cursor: pointer; }
+    .btn.active, .btn:hover { background: rgba(62,199,214,.18); border-color: rgba(62,199,214,.55); }
+    .btn.primary { background: linear-gradient(135deg, rgba(62,199,214,.95), rgba(122,224,200,.85)); color: #041016; border: 0; font-weight: 600; }
+    .stt-wrap { display: flex; align-items: center; gap: 6px; }
+    .stt-wrap label { font-size: .68rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+    select.stt {
+      appearance: none;
+      border: 1px solid rgba(232,238,246,.14);
+      background: rgba(255,255,255,.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%3Aec7d8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center;
+      background-image: none;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 28px 8px 12px;
+      font: inherit;
+      font-size: .78rem;
+      cursor: pointer;
+      outline: none;
+    }
+    select.stt:hover, select.stt:focus { background: rgba(62,199,214,.18); border-color: rgba(62,199,214,.55); }
+    select.stt option { color: #0b1219; }
+    .stage { position: relative; min-height: 0; overflow: hidden; }
+    .portrait { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 38%, rgba(7,16,24,.55) 72%, rgba(7,16,24,.92) 100%), url("/public/portrait.png") center 12% / cover no-repeat, radial-gradient(ellipse at 50% 30%, #1d3348 0%, #0a121a 70%); animation: breathe 7s ease-in-out infinite; }
+    .orb-wrap, .orb { display: none !important; }
+    .caption { position: absolute; left: 18px; right: 18px; bottom: 5%; z-index: 3; text-align: center; }
+    .caption .state { font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 10px; }
+    .caption .dialogue { display: grid; gap: 8px; text-align: left; max-width: 36rem; margin: 0 auto; }
+    .caption .bubble {
+      font-family: var(--font-display);
+      font-size: clamp(.95rem, 2.2vw, 1.25rem);
+      line-height: 1.45;
+      text-shadow: 0 8px 30px rgba(0,0,0,.55);
+      min-height: 1.4em;
+    }
+    .caption .bubble .who {
+      display: block;
+      font-family: var(--font-ui);
+      font-size: .68rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .caption .bubble.you .who { color: rgba(122,224,200,.85); }
+    .caption .bubble.her .who { color: rgba(62,199,214,.9); }
+    .caption .bubble .txt { color: var(--ink); }
+    .dock { padding: 10px 16px 16px; display: grid; gap: 10px; background: linear-gradient(180deg, transparent, rgba(7,16,24,.75)); }
+    .row { display: flex; gap: 8px; }
+    .row input { flex: 1; border: 1px solid rgba(232,238,246,.12); background: var(--glass); backdrop-filter: blur(12px); color: var(--ink); border-radius: 14px; padding: 12px 14px; font: inherit; outline: none; }
+    .status { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); gap: 12px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #666; }
+    .dot.on { background: var(--accent-2); box-shadow: 0 0 10px rgba(122,224,200,.7); }
+    .mem {
+      position: absolute; left: 14px; top: 64px; z-index: 4;
+      width: auto;
+      padding: 0;
+      border: 1px solid rgba(232,238,246,.12);
+      background: rgba(7, 16, 24, 0.55);
+      backdrop-filter: blur(14px);
+      border-radius: 12px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: padding 180ms ease, width 180ms ease, border-radius 180ms ease;
+      user-select: none;
+    }
+    .mem .mem-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+    }
+    .mem .mem-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border: 0;
+      background: transparent;
+      color: var(--accent-2);
+      cursor: pointer;
+      padding: 0;
+    }
+    .mem .mem-icon svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .mem .mem-title {
+      display: none;
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+    .mem .mem-body {
+      display: none;
+      margin-top: 10px;
+      cursor: default;
+    }
+    .mem.open {
+      width: min(240px, 42vw);
+      padding: 12px 12px 10px;
+      border-radius: 14px;
+      cursor: default;
+    }
+    .mem.open .mem-icon { display: none; }
+    .mem.open .mem-title { display: block; }
+    .mem.open .mem-body { display: block; }
+    .mem .mem-toggle {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      padding: 0;
+      display: none;
+    }
+    .mem.open .mem-toggle { display: inline; }
+    .mem .mem-toggle:hover { color: var(--accent-2); }
+    .mem .sys { margin-bottom: 8px; line-height: 1.45; color: var(--ink); }
+    .mem .bar {
+      height: 6px; border-radius: 99px; background: rgba(255,255,255,.08);
+      overflow: hidden; margin: 6px 0 10px;
+    }
+    .mem .bar > i {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 280ms ease;
+    }
+    .mem .row { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
+    .mem .row b { color: var(--ink); font-weight: 500; }
+    .mem .tag {
+      display: inline-block; min-width: 2.2em; text-align: center;
+      border-radius: 6px; padding: 1px 5px;
+      background: rgba(255,255,255,.06);
+    }
+    .mem .tag.on { background: rgba(122,224,200,.18); color: var(--accent-2); }
+    @media (max-width: 720px) { .mem { display: none; } }
+    @keyframes breathe { 0%,100%{transform:scale(1.02)} 50%{transform:scale(1.035) translateY(-6px)} }
+    @keyframes pulse { 0%{transform:scale(.86);opacity:.7} 100%{transform:scale(1.15);opacity:0} }
+    @keyframes glow { 0%,100%{box-shadow:0 0 28px rgba(62,199,214,.3)} 50%{box-shadow:0 0 48px rgba(62,199,214,.55),0 0 110px rgba(62,199,214,.28)} }
+    @keyframes speak { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="chrome">
+      <div class="brand">小遥<span>newCompanion · voice</span></div>
+      <div class="controls">
+        <div class="stt-wrap" title="语音识别引擎">
+          <label for="sttSelect">识别</label>
+          <select class="stt" id="sttSelect" aria-label="语音识别引擎">
+            <option value="mlx-whisper">Whisper</option>
+            <option value="mac-speech">macOS 语音</option>
+          </select>
+        </div>
+        <button class="btn active" id="halfBtn" type="button">半屏</button>
+        <button class="btn" id="quarterBtn" type="button">右下角</button>
+        <button class="btn primary" id="listenBtn" type="button">开始聆听</button>
+      </div>
+    </header>
+    <main class="stage">
+      <aside class="mem" id="memPanel" aria-label="memory" aria-expanded="false" title="Memory">
+        <div class="mem-head">
+          <button class="mem-icon" id="memIcon" type="button" aria-label="打开 Memory">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <h3 class="mem-title">Memory</h3>
+          <button class="mem-toggle" id="memToggle" type="button" aria-label="收起">收起</button>
+        </div>
+        <div class="mem-body" id="memBody">
+          <div class="sys" id="memSys">读取中…</div>
+          <div class="bar"><i id="memBar"></i></div>
+          <div id="memModels"></div>
+        </div>
+      </aside>
+      <div class="portrait"></div>
+      <div class="caption">
+        <div class="state" id="stateLabel">待命</div>
+        <div class="dialogue">
+          <div class="bubble you">
+            <span class="who">你</span>
+            <span class="txt" id="youLine">点「开始聆听」后说话</span>
+          </div>
+          <div class="bubble her">
+            <span class="who">小遥</span>
+            <span class="txt" id="herLine">……</span>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="dock">
+      <div class="row">
+        <input id="input" placeholder="也可以打字发送" />
+        <button class="btn primary" id="sendBtn" type="button">发送</button>
+      </div>
+      <div class="status">
+        <span><i class="dot" id="dot"></i><span id="conn">connecting…</span></span>
+        <span id="status">waiting</span>
+      </div>
+    </footer>
+  </div>
+  <script>
+    const labels = { idle: "待命", listening: "聆听中", thinking: "思索中", speaking: "回应中" };
+    const stateLabel = document.getElementById("stateLabel");
+    const youLine = document.getElementById("youLine");
+    const herLine = document.getElementById("herLine");
+    const input = document.getElementById("input");
+    const listenBtn = document.getElementById("listenBtn");
+    const statusEl = document.getElementById("status");
+    const connEl = document.getElementById("conn");
+    const dot = document.getElementById("dot");
+    const sttSelect = document.getElementById("sttSelect");
+
+    function applySttUI(backend, options) {
+      if (Array.isArray(options) && options.length) {
+        sttSelect.innerHTML = options.map((o) => {
+          const disabled = o.ready === false ? " disabled" : "";
+          return `<option value="${o.id}"${disabled}>${o.label}${o.ready === false ? "（未就绪）" : ""}</option>`;
+        }).join("");
+      }
+      if (backend) {
+        sttSelect.value = backend;
+        localStorage.setItem("nc-stt", backend);
+      }
+    }
+
+    sttSelect.onchange = () => {
+      const backend = sttSelect.value;
+      localStorage.setItem("nc-stt", backend);
+      if (!ws || ws.readyState !== 1) {
+        statusEl.textContent = "未连接，稍后自动应用";
+        return;
+      }
+      ws.send(JSON.stringify({ type: "stt", backend }));
+    };
+
+    let state = "idle";
+    let ws = null;
+    let micOn = false;
+    let audioEl = null;
+    let audioQueue = [];
+    let audioPlaying = false;
+    let playCtx = null;
+    let playSrc = null;
+    let audioUnlocked = false;
+    let audioCtx = null;
+    let mediaStream = null;
+    let processor = null;
+    let micActive = false;
+    let companionState = "idle";
+    let micMuteUntil = 0;
+
+    // Minimal valid silent wav — unlocks Safari/Chrome autoplay on user gesture.
+    const SILENT_WAV =
+      "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+    function setState(s) {
+      state = s;
+      companionState = s;
+      stateLabel.textContent = labels[s] || s;
+    }
+
+    function shouldSendMic() {
+      if (!micActive) return false;
+      if (audioPlaying || audioQueue.length) return false;
+      if (companionState === "thinking" || companionState === "speaking") return false;
+      if (Date.now() < micMuteUntil) return false;
+      return true;
+    }
+
+    function armEchoGuard(ms) {
+      const wait = Math.max(0, Number(ms) || 700);
+      micMuteUntil = Date.now() + wait;
+    }
+
+    async function unlockAudio() {
+      if (!audioEl) audioEl = new Audio();
+      audioEl.setAttribute("playsinline", "true");
+      try {
+        audioEl.src = SILENT_WAV;
+        await audioEl.play();
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      } catch (_) {}
+      try {
+        if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (playCtx.state === "suspended") await playCtx.resume();
+        audioUnlocked = true;
+      } catch (_) {
+        audioUnlocked = false;
+      }
+    }
+
+    function b64ToArrayBuffer(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    async function playViaContext(b64) {
+      if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (playCtx.state === "suspended") await playCtx.resume();
+      const buf = await playCtx.decodeAudioData(b64ToArrayBuffer(b64).slice(0));
+      return new Promise((resolve, reject) => {
+        try {
+          if (playSrc) {
+            try { playSrc.stop(); } catch (_) {}
+            playSrc = null;
+          }
+          const src = playCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(playCtx.destination);
+          src.onended = () => {
+            playSrc = null;
+            resolve();
+          };
+          playSrc = src;
+          src.start(0);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    async function playViaElement(b64) {
+      if (!audioEl) {
+        audioEl = new Audio();
+        audioEl.setAttribute("playsinline", "true");
+      }
+      const blob = new Blob([b64ToArrayBuffer(b64)], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        audioEl.onended = () => {
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audioEl.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("audio element error"));
+        };
+        audioEl.src = url;
+        const p = audioEl.play();
+        if (p && p.catch) p.catch(reject);
+      });
+    }
+
+    async function pumpAudio() {
+      if (audioPlaying) return;
+      const next = audioQueue.shift();
+      if (!next) return;
+      audioPlaying = true;
+      try {
+        if (!audioUnlocked) await unlockAudio();
+        try {
+          await playViaContext(next);
+        } catch (err) {
+          console.warn("AudioContext play failed, falling back", err);
+          await playViaElement(next);
+        }
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "浏览器拦截了播放，请再点一次「开始聆听」";
+      } finally {
+        audioPlaying = false;
+        if (!audioQueue.length) armEchoGuard(700);
+        pumpAudio();
+      }
+    }
+
+    function stopPlayback() {
+      audioQueue = [];
+      audioPlaying = false;
+      if (playSrc) {
+        try { playSrc.stop(); } catch (_) {}
+        playSrc = null;
+      }
+      if (!audioEl) return;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    }
+
+    function playWav(b64) {
+      audioQueue.push(b64);
+      // Mute mic as soon as TTS audio arrives (before decode/play starts).
+      armEchoGuard(1200);
+      void pumpAudio();
+    }
+
+    function downsampleTo16k(input, inputRate) {
+      if (inputRate === 16000) {
+        const out = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          const s = Math.max(-1, Math.min(1, input[i]));
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        return out;
+      }
+      const ratio = inputRate / 16000;
+      const newLen = Math.floor(input.length / ratio);
+      const out = new Int16Array(newLen);
+      for (let i = 0; i < newLen; i++) {
+        const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)] || 0));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
+    }
+
+    function pcmToBase64(pcm) {
+      const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function stopMic() {
+      micActive = false;
+      try {
+        processor && processor.disconnect();
+        mediaStream && mediaStream.getTracks().forEach((t) => t.stop());
+        audioCtx && audioCtx.close();
+      } catch (_) {}
+      processor = null;
+      mediaStream = null;
+      audioCtx = null;
+    }
+
+    async function startMic() {
+      stopMic();
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        // echoCancellation can duck/mute speaker output while mic is open (esp. Safari).
+        audio: {
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(mediaStream);
+      processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const mute = audioCtx.createGain();
+      mute.gain.value = 0;
+      processor.onaudioprocess = (ev) => {
+        if (!shouldSendMic() || !ws || ws.readyState !== 1) return;
+        const inputData = ev.inputBuffer.getChannelData(0);
+        const pcm = downsampleTo16k(inputData, audioCtx.sampleRate);
+        if (pcm.length) ws.send(JSON.stringify({ type: "audio", data: pcmToBase64(pcm) }));
+      };
+      source.connect(processor);
+      processor.connect(mute);
+      mute.connect(audioCtx.destination);
+      micActive = true;
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+    }
+
+    function openLayout(mode) {
+      const sw = screen.availWidth, sh = screen.availHeight;
+      let w, h, left, top;
+      if (mode === "half") { w = Math.floor(sw / 2); h = sh; left = sw - w; top = 0; }
+      else { w = Math.floor(sw * 0.34); h = Math.floor(sh * 0.58); left = sw - w - 18; top = sh - h - 28; }
+      document.getElementById("halfBtn").classList.toggle("active", mode === "half");
+      document.getElementById("quarterBtn").classList.toggle("active", mode === "quarter");
+      try { window.resizeTo(w, h); window.moveTo(left, top); } catch (_) {}
+      localStorage.setItem("nc-layout", mode);
+    }
+
+    document.getElementById("halfBtn").onclick = () => openLayout("half");
+    document.getElementById("quarterBtn").onclick = () => openLayout("quarter");
+
+    listenBtn.onclick = async () => {
+      if (micOn) {
+        stopMic();
+        micOn = false;
+        listenBtn.textContent = "开始聆听";
+        listenBtn.classList.remove("active");
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "listen", on: false }));
+        statusEl.textContent = "麦克风已关";
+        return;
+      }
+      if (!ws || ws.readyState !== 1) {
+        statusEl.textContent = "管线未连接";
+        return;
+      }
+      try {
+        await unlockAudio();
+        await startMic();
+        micOn = true;
+        listenBtn.textContent = "停止聆听";
+        listenBtn.classList.add("active");
+        ws.send(JSON.stringify({ type: "listen", on: true }));
+        // Don't wipe unlock — only clear any leftover TTS queue
+        audioQueue = [];
+        statusEl.textContent = "麦克风开 · 直接说话";
+      } catch (err) {
+        statusEl.textContent = "麦克风权限被拒绝";
+        console.error(err);
+      }
+    };
+
+    function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      void unlockAudio();
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "text", text }));
+    }
+    document.getElementById("sendBtn").onclick = send;
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+
+    function renderMemory(mem) {
+      if (!mem) return;
+      const sys = mem.system || {};
+      const proc = mem.process || {};
+      const est = mem.estimate || {};
+      const pct = Math.max(0, Math.min(100, Number(sys.percent) || 0));
+      document.getElementById("memSys").innerHTML =
+        `系统 ${sys.used_gb ?? "—"} / ${sys.total_gb ?? "—"} GB<br>` +
+        `管线 RSS <b style="color:var(--ink)">${proc.rss_mb ?? "—"} MB</b>` +
+        (est.loaded_models_mb != null ? ` · 模型估 ${est.loaded_models_mb} MB` : "");
+      document.getElementById("memBar").style.width = pct + "%";
+      const box = document.getElementById("memModels");
+      box.innerHTML = (mem.models || []).map((m) => {
+        const on = m.loaded ? "on" : "";
+        const ram = m.loaded ? `${m.est_ram_mb} MB` : "—";
+        return `<div class="row"><span><span class="tag ${on}">${m.loaded ? "ON" : "off"}</span> ${m.label}</span><b>${ram}</b></div>` +
+          `<div class="row" style="opacity:.7"><span>${(m.model || "").split("/").pop()}</span><span>盘 ${m.disk_mb} MB</span></div>`;
+      }).join("");
+    }
+
+    (function setupMemPanel() {
+      const panel = document.getElementById("memPanel");
+      const toggle = document.getElementById("memToggle");
+      function setOpen(open) {
+        panel.classList.toggle("open", open);
+        panel.setAttribute("aria-expanded", open ? "true" : "false");
+        panel.title = open ? "" : "Memory";
+      }
+      setOpen(false);
+      panel.addEventListener("click", (ev) => {
+        if (panel.classList.contains("open")) {
+          if (ev.target.closest(".mem-toggle")) {
+            setOpen(false);
+            ev.stopPropagation();
+          }
+          return;
+        }
+        setOpen(true);
+      });
+      toggle.addEventListener("click", (ev) => {
+        setOpen(false);
+        ev.stopPropagation();
+      });
+      document.addEventListener("click", (ev) => {
+        if (!panel.classList.contains("open")) return;
+        if (!panel.contains(ev.target)) setOpen(false);
+      });
+    })();
+
+    async function pollMemory() {
+      try {
+        const res = await fetch("/api/memory");
+        if (res.ok) renderMemory(await res.json());
+      } catch (_) {}
+    }
+    setInterval(pollMemory, 8000);
+    pollMemory();
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const host = location.hostname || "127.0.0.1";
+      const port = location.port || "8765";
+      ws = new WebSocket(`${proto}://${host}:${port}/ws`);
+      ws.onopen = () => {
+        dot.classList.add("on");
+        connEl.textContent = "已连接管线";
+        statusEl.textContent = "online";
+        const preferred = localStorage.getItem("nc-stt");
+        if (preferred) {
+          ws.send(JSON.stringify({ type: "stt", backend: preferred }));
+        }
+      };
+      ws.onclose = () => {
+        dot.classList.remove("on");
+        connEl.textContent = "重连中…";
+        if (micOn) { stopMic(); micOn = false; listenBtn.textContent = "开始聆听"; }
+        ws = null;
+        setTimeout(connect, 2000);
+      };
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === "state") {
+          if (msg.state) setState(msg.state);
+          if (msg.stt_backend || msg.stt_options) applySttUI(msg.stt_backend, msg.stt_options);
+          if (msg.memory) renderMemory(msg.memory);
+          if (msg.greeting) herLine.textContent = msg.greeting;
+        }
+        if (msg.type === "stt") {
+          applySttUI(msg.backend, msg.options);
+          if (msg.message) statusEl.textContent = msg.message;
+          if (msg.memory) renderMemory(msg.memory);
+        }
+        if (msg.type === "reply" && msg.text) herLine.textContent = msg.text;
+        if (msg.type === "transcript" && msg.role === "user") youLine.textContent = msg.text;
+        if (msg.type === "audio" && msg.data) playWav(msg.data);
+        if (msg.type === "echo_guard") armEchoGuard(msg.ms || 700);
+        if (msg.type === "barge_in") stopPlayback();
+        if (msg.type === "info" && msg.message) statusEl.textContent = msg.message;
+        if (msg.type === "error" && msg.message) statusEl.textContent = msg.message;
+        if (msg.type === "memory" && msg.memory) renderMemory(msg.memory);
+      };
+    }
+    connect();
+    openLayout(localStorage.getItem("nc-layout") === "quarter" ? "quarter" : "half");
+  </script>
+</body>
+</html>

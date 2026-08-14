@@ -1,0 +1,66 @@
+# newCompanion runtime config — MacBook Air M-series 16GB
+
+mode: local # mock | local
+
+server:
+  host: 127.0.0.1
+  port: 8765
+
+ui:
+  default_layout: half # half | quarter
+  always_on_top: true
+
+audio:
+  sample_rate: 16000
+  channels: 1
+  # 扬声器回声容易被当成用户打断；默认关，需要真打断再说
+  barge_in: false
+  # TTS 结束后忽略麦克风的毫秒数，避免把回复声再听进去
+  echo_guard_ms: 700
+
+vad:
+  backend: silero
+  threshold: 0.5
+  min_speech_ms: 250
+  min_silence_ms: 200
+
+stt:
+  # 默认引擎；网页端可随时切换 mlx-whisper / mac-speech
+  backend: mlx-whisper
+  model: models/whisper-base-mlx
+  language: zh
+  locale: zh-CN
+  prefer_app: true
+  corrections:
+    拥有: 永远
+
+llm:
+  backend: mlx-lm
+  model: models/Qwen3-4B-4bit
+  base_url: http://127.0.0.1:8080/v1
+  api_key: "local"
+  max_tokens: 80
+  temperature: 0.7
+  # Qwen3 默认会“思考”；语音陪伴关掉以降低延迟
+  enable_thinking: false
+
+tts:
+  backend: qwen3-mlx
+  model: models/Qwen3-TTS-0.6B-CustomVoice-8bit
+  voice: Serena
+  language: Chinese
+  # Lower temperature + fixed style → more consistent timbre across turns
+  temperature: 0.28
+  speed: 1.0
+  instruct: "温柔关的御姐声，沉稳、有支持感、会撒娇，语气温柔，气息稳定，像认真听你说话并很关心你"
+
+latency:
+  instant_ack: false
+
+memory:
+  max_turns: 12
+
+warmup:
+  llm: true
+  tts: true
+  stt: false
