@@ -7,7 +7,11 @@ pipeline/.venv/
 .pytest_cache/
 .mypy_cache/
 .env
+.env.local
+.env.*.local
 .env.*
+!.env.example
+!env.example
 models/
 *.gguf
 .cache/
@@ -16,3 +20,8 @@ ui/dist/
 # Prebuilt llama.cpp binaries (download via scripts)
 tools/llama.cpp/
 tools/llama-macos-arm64.tar.gz
+
+# Built overlay apps
+apps/CompanionOverlay/CompanionOverlay.app/
+小遥.app/
+小遥xiaoyao.app/

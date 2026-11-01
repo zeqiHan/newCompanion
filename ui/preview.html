@@ -131,7 +131,7 @@
       cursor: default;
     }
     .mem.open {
-      width: min(240px, 42vw);
+      width: min(360px, 52vw);
       padding: 12px 12px 10px;
       border-radius: 14px;
       cursor: default;
@@ -171,6 +171,114 @@
       background: rgba(255,255,255,.06);
     }
     .mem .tag.on { background: rgba(122,224,200,.18); color: var(--accent-2); }
+    .mem .tabs {
+      display: flex; gap: 6px; margin: 0 0 10px;
+    }
+    .mem .tab {
+      appearance: none; border: 1px solid rgba(255,255,255,.1);
+      background: transparent; color: var(--muted);
+      border-radius: 999px; padding: 4px 10px;
+      font: inherit; font-size: 0.65rem; cursor: pointer;
+    }
+    .mem .tab.on {
+      color: #041016;
+      background: rgba(122,224,200,.88);
+      border-color: transparent;
+      font-weight: 600;
+    }
+    .mem .pane { display: none; }
+    .mem .pane.on { display: block; }
+    .mem .archive-hint {
+      opacity: .75; margin-bottom: 8px; line-height: 1.4;
+    }
+    .mem .archive-path {
+      opacity: .55; font-size: 0.6rem; margin-bottom: 8px;
+      word-break: break-all;
+    }
+    .mem textarea#memArchive {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: rgba(0,0,0,.28);
+      color: var(--ink);
+      font: 0.72rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 10px;
+    }
+    .mem .archive-actions {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    .mem .archive-actions .btn-save {
+      appearance: none; border: 0;
+      background: rgba(122,224,200,.88); color: #041016;
+      border-radius: 999px; padding: 6px 12px;
+      font: inherit; font-size: 0.68rem; font-weight: 600; cursor: pointer;
+    }
+    .mem .archive-actions .btn-save:disabled { opacity: .5; cursor: default; }
+    .mem .archive-status { opacity: .7; font-size: 0.62rem; }
+    .mem .learn-label {
+      display: block; margin: 8px 0 3px; opacity: .65; font-size: 0.6rem;
+      letter-spacing: .06em; text-transform: lowercase;
+    }
+    .mem .learn-input {
+      width: 100%; box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      background: rgba(0,0,0,.28);
+      color: var(--ink);
+      font: inherit; font-size: 0.72rem;
+      padding: 7px 8px;
+    }
+    .mem .learn-row {
+      display: flex; align-items: center; gap: 8px;
+      margin: 4px 0 8px; color: var(--ink);
+    }
+    .mem .loop-king {
+      font-family: "Noto Serif SC", "Songti SC", serif;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--ink);
+      margin: 0 0 8px;
+    }
+    .mem .loop-action {
+      font-size: 0.92rem;
+      line-height: 1.4;
+      color: var(--ink);
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(122,224,200,.12);
+      border: 1px solid rgba(122,224,200,.28);
+      margin-bottom: 8px;
+    }
+    .mem .loop-meta, .mem .loop-reward {
+      font-size: 0.62rem;
+      line-height: 1.45;
+      opacity: .8;
+      margin-bottom: 8px;
+    }
+    .mem .loop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+    .mem .loop-actions button, .mem .btn-ghost {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font: inherit;
+      font-size: 0.64rem;
+      cursor: pointer;
+    }
+    .mem .loop-wall { list-style: none; margin: 4px 0 8px; padding: 0; }
+    .mem .loop-wall li {
+      font-size: 0.64rem;
+      line-height: 1.4;
+      padding: 4px 0;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .mem details.raw-state { margin-top: 10px; opacity: .9; }
+    .mem details.raw-state summary { cursor: pointer; font-size: 0.64rem; opacity: .7; }
     @media (max-width: 720px) { .mem { display: none; } }
     @keyframes breathe { 0%,100%{transform:scale(1.02)} 50%{transform:scale(1.035) translateY(-6px)} }
     @keyframes pulse { 0%{transform:scale(.86);opacity:.7} 100%{transform:scale(1.15);opacity:0} }
@@ -186,8 +294,8 @@
         <div class="stt-wrap" title="语音识别引擎">
           <label for="sttSelect">识别</label>
           <select class="stt" id="sttSelect" aria-label="语音识别引擎">
-            <option value="mlx-whisper">Whisper</option>
             <option value="mac-speech">macOS 语音</option>
+            <option value="mlx-whisper">Whisper</option>
           </select>
         </div>
         <button class="btn active" id="halfBtn" type="button">半屏</button>
@@ -207,9 +315,88 @@
           <button class="mem-toggle" id="memToggle" type="button" aria-label="收起">收起</button>
         </div>
         <div class="mem-body" id="memBody">
-          <div class="sys" id="memSys">读取中…</div>
-          <div class="bar"><i id="memBar"></i></div>
-          <div id="memModels"></div>
+          <div class="tabs" role="tablist">
+            <button class="tab on" type="button" data-pane="ram" id="tabRam">运行内存</button>
+            <button class="tab" type="button" data-pane="learn" id="tabLearn">学习循环</button>
+            <button class="tab" type="button" data-pane="archive" id="tabArchive">记忆档案</button>
+          </div>
+          <div class="pane on" id="paneRam">
+            <div class="sys" id="memSys">读取中…</div>
+            <div class="bar"><i id="memBar"></i></div>
+            <div id="memModels"></div>
+          </div>
+          <div class="pane" id="paneLearn">
+            <div class="archive-hint" id="loopAsk">早上定一个动作，晚上只交证据。</div>
+            <p class="loop-king" id="loopKing">……</p>
+            <label class="learn-label">身份句（王的心态，可改）</label>
+            <input class="learn-input" id="loopIdentity" />
+            <div class="loop-action" id="loopAction">还没有今天的唯一动作</div>
+            <label class="learn-label">今日唯一动作（5–25 分钟）</label>
+            <input class="learn-input" id="loopActionInput" />
+            <div class="loop-actions">
+              <button type="button" id="loopMorning">定为今日动作</button>
+              <button type="button" id="loopCopy">复制到社交媒体</button>
+            </div>
+            <label class="learn-label">上周不会</label>
+            <input class="learn-input" id="loopLastWeek" />
+            <label class="learn-label">这周会了</label>
+            <input class="learn-input" id="loopThisWeek" />
+            <label class="learn-label">今晚的证据</label>
+            <input class="learn-input" id="loopEvidence" placeholder="做出来的东西，不是「我学了」" />
+            <div class="loop-actions">
+              <button type="button" id="loopYes">有证据</button>
+              <button type="button" id="loopNo">没有证据</button>
+            </div>
+            <div class="loop-meta" id="loopMeta"></div>
+            <div class="loop-reward" id="loopReward"></div>
+            <label class="learn-label">证据墙 · 14 天</label>
+            <ul class="loop-wall" id="loopWall"></ul>
+            <details class="raw-state">
+              <summary>手改学习状态</summary>
+            <div class="archive-path" id="learnPath"></div>
+            <label class="learn-row"><input type="checkbox" id="learnActive" /> 学习会话进行中</label>
+            <label class="learn-label">goal</label>
+            <input class="learn-input" id="learnGoal" />
+            <label class="learn-label">current_task</label>
+            <input class="learn-input" id="learnTask" />
+            <label class="learn-label">understanding</label>
+            <input class="learn-input" id="learnUnderstanding" />
+            <label class="learn-label">uncertainty</label>
+            <input class="learn-input" id="learnUncertainty" />
+            <label class="learn-label">blockers</label>
+            <input class="learn-input" id="learnBlockers" />
+            <label class="learn-label">last_attempt</label>
+            <input class="learn-input" id="learnAttempt" />
+            <label class="learn-label">evidence</label>
+            <input class="learn-input" id="learnEvidence" />
+            <label class="learn-label">next_action</label>
+            <input class="learn-input" id="learnNext" />
+            <label class="learn-label">next_checkpoint</label>
+            <input class="learn-input" id="learnCheckpoint" />
+            <label class="learn-label">intervention</label>
+            <select class="learn-input" id="learnIntervention">
+              <option value="probe">probe</option>
+              <option value="verify">verify</option>
+              <option value="redirect">redirect</option>
+              <option value="hint">hint</option>
+              <option value="answer">answer</option>
+              <option value="silence">silence</option>
+            </select>
+            <div class="archive-actions">
+              <button class="btn-save" id="learnSave" type="button">保存学习状态</button>
+              <span class="archive-status" id="learnStatus"></span>
+            </div>
+            </details>
+          </div>
+          <div class="pane" id="paneArchive">
+            <div class="archive-hint">用户画像 + 长期摘要。可直接编辑并保存；小遥对话时会参考。</div>
+            <div class="archive-path" id="memArchivePath"></div>
+            <textarea id="memArchive" spellcheck="false" aria-label="记忆档案"></textarea>
+            <div class="archive-actions">
+              <button class="btn-save" id="memArchiveSave" type="button">保存档案</button>
+              <span class="archive-status" id="memArchiveStatus"></span>
+            </div>
+          </div>
         </div>
       </aside>
       <div class="portrait"></div>
@@ -341,7 +528,7 @@
       if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (playCtx.state === "suspended") await playCtx.resume();
       const buf = await playCtx.decodeAudioData(b64ToArrayBuffer(b64).slice(0));
-      return new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         try {
           if (playSrc) {
             try { playSrc.stop(); } catch (_) {}
@@ -350,7 +537,14 @@
           const src = playCtx.createBufferSource();
           src.buffer = buf;
           src.connect(playCtx.destination);
+          const ms = Math.min(20000, Math.ceil((buf.duration || 1) * 1000) + 800);
+          const timer = setTimeout(() => {
+            try { src.stop(); } catch (_) {}
+            playSrc = null;
+            resolve();
+          }, ms);
           src.onended = () => {
+            clearTimeout(timer);
             playSrc = null;
             resolve();
           };
@@ -570,15 +764,305 @@
       }).join("");
     }
 
+    function renderCompanionMemory(doc) {
+      if (!doc) return;
+      const ta = document.getElementById("memArchive");
+      const pathEl = document.getElementById("memArchivePath");
+      if (pathEl) pathEl.textContent = doc.relative || doc.path || "";
+      if (ta && document.activeElement !== ta) {
+        ta.value = doc.content || "";
+      }
+    }
+
+    function renderLearningState(payload) {
+      if (!payload || !payload.state) return;
+      const s = payload.state;
+      const pathEl = document.getElementById("learnPath");
+      if (pathEl) pathEl.textContent = payload.relative || payload.path || "";
+      const activeEl = document.activeElement;
+      const fields = [
+        ["learnGoal", "goal"],
+        ["learnTask", "current_task"],
+        ["learnUnderstanding", "current_understanding"],
+        ["learnUncertainty", "uncertainty"],
+        ["learnBlockers", "blockers"],
+        ["learnAttempt", "last_attempt"],
+        ["learnEvidence", "evidence"],
+        ["learnNext", "next_action"],
+        ["learnCheckpoint", "next_checkpoint"],
+      ];
+      for (const [id, key] of fields) {
+        const el = document.getElementById(id);
+        if (el && activeEl !== el) el.value = s[key] || "";
+      }
+      const inter = document.getElementById("learnIntervention");
+      if (inter && activeEl !== inter) inter.value = s.intervention || "probe";
+      const act = document.getElementById("learnActive");
+      if (act && activeEl !== act) act.checked = !!s.active;
+    }
+
+    function collectLearningState() {
+      return {
+        active: document.getElementById("learnActive").checked,
+        goal: document.getElementById("learnGoal").value.trim(),
+        current_task: document.getElementById("learnTask").value.trim(),
+        current_understanding: document.getElementById("learnUnderstanding").value.trim(),
+        uncertainty: document.getElementById("learnUncertainty").value.trim(),
+        blockers: document.getElementById("learnBlockers").value.trim(),
+        last_attempt: document.getElementById("learnAttempt").value.trim(),
+        evidence: document.getElementById("learnEvidence").value.trim(),
+        next_action: document.getElementById("learnNext").value.trim(),
+        next_checkpoint: document.getElementById("learnCheckpoint").value.trim(),
+        intervention: document.getElementById("learnIntervention").value,
+        notes: "",
+      };
+    }
+
+    async function loadCompanionMemory() {
+      try {
+        const res = await fetch("/api/companion-memory");
+        if (res.ok) renderCompanionMemory(await res.json());
+      } catch (_) {}
+    }
+
+    let loopFocused = false;
+    let loopSocial = "";
+
+    function confirmLeave() {
+      if (!loopFocused) return true;
+      return window.confirm("离开工作面？回来时仍是这一个动作，不用重新设定。");
+    }
+
+    function renderLoop(payload) {
+      const loop = payload && payload.loop ? payload.loop : payload;
+      if (!loop || !loop.date) return;
+      loopFocused = !!loop.focused;
+      loopSocial = loop.social_text || "";
+      const ask = document.getElementById("loopAsk");
+      if (ask) ask.textContent = loop.ask || "";
+      const king = document.getElementById("loopKing");
+      if (king) king.textContent = loop.identity || "";
+      const ident = document.getElementById("loopIdentity");
+      if (ident && document.activeElement !== ident) ident.value = loop.identity || "";
+      const action = document.getElementById("loopAction");
+      if (action) action.textContent = loop.action || "还没有今天的唯一动作";
+      const actionIn = document.getElementById("loopActionInput");
+      if (actionIn && document.activeElement !== actionIn && !actionIn.value) {
+        actionIn.placeholder = loop.action || "一个 5–25 分钟能做完的动作";
+      }
+      const last = document.getElementById("loopLastWeek");
+      if (last && document.activeElement !== last) last.value = loop.last_week || "";
+      const week = document.getElementById("loopThisWeek");
+      if (week && document.activeElement !== week) week.value = loop.this_week || "";
+      const ev = document.getElementById("loopEvidence");
+      if (ev && document.activeElement !== ev && loop.evidence) ev.value = loop.evidence;
+      const meta = document.getElementById("loopMeta");
+      if (meta) {
+        meta.textContent =
+          `连续 ${loop.streak} · 债务 ${loop.debt} · 复利 ${loop.compound}` +
+          ` · 简报额度 ${loop.briefing_credits}` +
+          (loop.rest_window ? " · 休息窗开着" : "");
+      }
+      const reward = document.getElementById("loopReward");
+      if (reward) reward.textContent = [loop.reward, loop.big_reward].filter(Boolean).join(" ");
+      const wall = document.getElementById("loopWall");
+      if (wall) {
+        const rows = loop.wall || [];
+        wall.innerHTML = rows.length
+          ? rows.map((e) => {
+              const mark = e.has_evidence ? "有" : (e.settled ? "无" : "未结");
+              const body = e.has_evidence ? (e.evidence || "") : (e.action || "");
+              return `<li><b>${e.date}</b> · ${mark} · ${body}</li>`;
+            }).join("")
+          : "<li>还没有证据。</li>";
+      }
+    }
+
+    async function loadLearningState() {
+      try {
+        const res = await fetch("/api/learning-state");
+        if (res.ok) renderLearningState(await res.json());
+      } catch (_) {}
+    }
+
+    async function loadLoop() {
+      try {
+        const res = await fetch("/api/loop");
+        if (res.ok) renderLoop(await res.json());
+      } catch (_) {}
+    }
+
+    async function postLoop(url, body) {
+      const reward = document.getElementById("loopReward");
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          if (reward) reward.textContent = data.error || "没有记上";
+          return;
+        }
+        renderLoop(data);
+        if (data.learning_state) renderLearningState(data.learning_state);
+      } catch (err) {
+        if (reward) reward.textContent = "没有记上";
+        console.error(err);
+      }
+    }
+
+    async function saveCompanionMemory() {
+      const ta = document.getElementById("memArchive");
+      const status = document.getElementById("memArchiveStatus");
+      const btn = document.getElementById("memArchiveSave");
+      btn.disabled = true;
+      status.textContent = "保存中…";
+      try {
+        const res = await fetch("/api/companion-memory", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: ta.value }),
+        });
+        if (!res.ok) throw new Error("save failed");
+        const data = await res.json();
+        renderCompanionMemory(data);
+        status.textContent = "已保存";
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: "companion_memory" }));
+        }
+      } catch (err) {
+        status.textContent = "保存失败";
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+          if (status.textContent === "已保存" || status.textContent === "保存失败") {
+            status.textContent = "";
+          }
+        }, 2200);
+      }
+    }
+
+    async function saveLearningState() {
+      const status = document.getElementById("learnStatus");
+      const btn = document.getElementById("learnSave");
+      btn.disabled = true;
+      status.textContent = "保存中…";
+      try {
+        const res = await fetch("/api/learning-state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: collectLearningState() }),
+        });
+        if (!res.ok) throw new Error("save failed");
+        const data = await res.json();
+        renderLearningState(data);
+        status.textContent = "已保存";
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: "learning_state" }));
+        }
+      } catch (err) {
+        status.textContent = "保存失败";
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+          if (status.textContent === "已保存" || status.textContent === "保存失败") {
+            status.textContent = "";
+          }
+        }, 2200);
+      }
+    }
+
     (function setupMemPanel() {
       const panel = document.getElementById("memPanel");
       const toggle = document.getElementById("memToggle");
       function setOpen(open) {
+        if (!open && panel.classList.contains("open") && !confirmLeave()) return;
         panel.classList.toggle("open", open);
         panel.setAttribute("aria-expanded", open ? "true" : "false");
         panel.title = open ? "" : "Memory";
+        if (open) {
+          loadCompanionMemory();
+          loadLearningState();
+          loadLoop().then(() => {
+            if (loopFocused) setPane("learn", true);
+          });
+        }
+      }
+      function setPane(name, force) {
+        if (!force && name !== "learn" && document.getElementById("paneLearn").classList.contains("on") && !confirmLeave()) {
+          return;
+        }
+        document.querySelectorAll(".mem .tab").forEach((t) => {
+          t.classList.toggle("on", t.dataset.pane === name);
+        });
+        document.getElementById("paneRam").classList.toggle("on", name === "ram");
+        document.getElementById("paneLearn").classList.toggle("on", name === "learn");
+        document.getElementById("paneArchive").classList.toggle("on", name === "archive");
       }
       setOpen(false);
+      document.querySelectorAll(".mem .tab").forEach((t) => {
+        t.addEventListener("click", (ev) => {
+          setPane(t.dataset.pane);
+          ev.stopPropagation();
+        });
+      });
+      document.getElementById("memArchiveSave").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        saveCompanionMemory();
+      });
+      document.getElementById("learnSave").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        saveLearningState();
+      });
+      document.getElementById("loopMorning").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const typed = document.getElementById("loopActionInput").value.trim();
+        const shown = document.getElementById("loopAction").textContent.trim();
+        const action = typed || (shown.startsWith("还没有") ? "" : shown);
+        if (!action) {
+          document.getElementById("loopReward").textContent = "先写一个 5–25 分钟能做完的动作。";
+          return;
+        }
+        postLoop("/api/loop/morning", {
+          action,
+          identity: document.getElementById("loopIdentity").value.trim(),
+          last_week: document.getElementById("loopLastWeek").value.trim(),
+          this_week: document.getElementById("loopThisWeek").value.trim(),
+        });
+      });
+      document.getElementById("loopYes").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        postLoop("/api/loop/evening", {
+          has_evidence: true,
+          evidence: document.getElementById("loopEvidence").value.trim(),
+          this_week: document.getElementById("loopThisWeek").value.trim(),
+        });
+      });
+      document.getElementById("loopNo").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (!window.confirm("记为今日无证据？连续有效会清零。")) return;
+        postLoop("/api/loop/evening", {
+          has_evidence: false,
+          evidence: "",
+          this_week: document.getElementById("loopThisWeek").value.trim(),
+        });
+      });
+      document.getElementById("loopCopy").addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const reward = document.getElementById("loopReward");
+        try {
+          await navigator.clipboard.writeText(loopSocial);
+          if (reward) reward.textContent = "已复制。贴到社交平台就是今天的公开承诺。";
+        } catch (_) {
+          if (reward) reward.textContent = loopSocial;
+        }
+      });
+      document.getElementById("memArchive").addEventListener("click", (ev) => ev.stopPropagation());
+      document.getElementById("paneLearn").addEventListener("click", (ev) => ev.stopPropagation());
       panel.addEventListener("click", (ev) => {
         if (panel.classList.contains("open")) {
           if (ev.target.closest(".mem-toggle")) {
@@ -607,6 +1091,9 @@
     }
     setInterval(pollMemory, 8000);
     pollMemory();
+    loadCompanionMemory();
+    loadLearningState();
+    loadLoop();
 
     function connect() {
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
@@ -620,7 +1107,8 @@
         dot.classList.add("on");
         connEl.textContent = "已连接管线";
         statusEl.textContent = "online";
-        const preferred = localStorage.getItem("nc-stt");
+        const preferred = localStorage.getItem("nc-stt") || "mac-speech";
+        localStorage.setItem("nc-stt", preferred);
         if (preferred) {
           ws.send(JSON.stringify({ type: "stt", backend: preferred }));
         }
@@ -638,6 +1126,9 @@
           if (msg.state) setState(msg.state);
           if (msg.stt_backend || msg.stt_options) applySttUI(msg.stt_backend, msg.stt_options);
           if (msg.memory) renderMemory(msg.memory);
+          if (msg.companion_memory) renderCompanionMemory(msg.companion_memory);
+          if (msg.learning_state) renderLearningState(msg.learning_state);
+          if (msg.loop) renderLoop(msg.loop);
           if (msg.greeting) herLine.textContent = msg.greeting;
         }
         if (msg.type === "stt") {
@@ -653,6 +1144,13 @@
         if (msg.type === "info" && msg.message) statusEl.textContent = msg.message;
         if (msg.type === "error" && msg.message) statusEl.textContent = msg.message;
         if (msg.type === "memory" && msg.memory) renderMemory(msg.memory);
+        if (msg.type === "companion_memory" && msg.companion_memory) {
+          renderCompanionMemory(msg.companion_memory);
+        }
+        if (msg.type === "learning_state" && msg.learning_state) {
+          renderLearningState(msg.learning_state);
+        }
+        if (msg.type === "loop" && msg.loop) renderLoop(msg.loop);
       };
     }
     connect();

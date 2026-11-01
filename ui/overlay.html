@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小遥 · Overlay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Sora:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #f2f6fb;
+      --muted: rgba(242, 246, 251, 0.7);
+      --accent: #7ae0c8;
+      --font-display: "Noto Serif SC", "Songti SC", serif;
+      --font-ui: "Sora", "PingFang SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: transparent !important;
+      font-family: var(--font-ui);
+      color: var(--ink);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .stage {
+      position: relative;
+      height: 100%;
+      display: grid;
+      grid-template-rows: 1fr auto;
+    }
+    .portrait-wrap {
+      position: relative;
+      min-height: 0;
+      display: grid;
+      place-items: end center;
+      padding: 0 8px;
+    }
+    .portrait {
+      width: min(100%, 360px);
+      height: 100%;
+      background: url("/public/portrait.png") center 8% / cover no-repeat;
+      animation: breathe 7s ease-in-out infinite;
+      filter: drop-shadow(0 18px 28px rgba(0,0,0,.35));
+      border-radius: 18px;
+    }
+    .hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      z-index: 5;
+    }
+    .pill {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(8, 14, 20, 0.42);
+      backdrop-filter: blur(10px);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font: inherit;
+      font-size: .72rem;
+      cursor: pointer;
+    }
+    .pill.primary {
+      background: rgba(122, 224, 200, 0.88);
+      color: #041016;
+      border: 0;
+      font-weight: 600;
+    }
+    .pill.ghost { opacity: .85; }
+    .state {
+      font-size: .66rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 4px 16px rgba(0,0,0,.55);
+    }
+    .caption {
+      padding: 0 14px 14px;
+      z-index: 3;
+    }
+    .dialogue {
+      display: grid;
+      gap: 6px;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(7, 12, 18, 0.38);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .bubble .who {
+      display: block;
+      font-size: .62rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .bubble.her .who { color: rgba(122,224,200,.95); }
+    .bubble.you .who { color: rgba(180, 220, 255, .9); }
+    .bubble .txt {
+      font-family: var(--font-display);
+      font-size: clamp(.9rem, 2.4vw, 1.1rem);
+      line-height: 1.4;
+      text-shadow: 0 6px 18px rgba(0,0,0,.45);
+    }
+    .drag {
+      position: absolute;
+      inset: 0 0 28% 0;
+      z-index: 1;
+      -webkit-app-region: drag;
+    }
+    .no-drag { -webkit-app-region: no-drag; }
+    @keyframes breathe {
+      0%,100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-6px) scale(1.015); }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="hud no-drag">
+      <span class="state" id="stateLabel">待命</span>
+      <div style="display:flex;gap:6px;">
+        <button class="pill ghost" id="quitBtn" type="button" title="退出悬浮窗">退出</button>
+        <button class="pill primary" id="listenBtn" type="button">开始聆听</button>
+      </div>
+    </div>
+    <div class="portrait-wrap">
+      <div class="drag"></div>
+      <div class="portrait" id="portrait"></div>
+    </div>
+    <div class="caption no-drag">
+      <div class="dialogue">
+        <div class="bubble you">
+          <span class="who">你</span>
+          <span class="txt" id="youLine">点「开始聆听」后说话</span>
+        </div>
+        <div class="bubble her">
+          <span class="who">小遥</span>
+          <span class="txt" id="herLine">我在这里。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const labels = { idle: "待命", listening: "聆听中", thinking: "思索中", speaking: "回应中" };
+    const stateLabel = document.getElementById("stateLabel");
+    const youLine = document.getElementById("youLine");
+    const herLine = document.getElementById("herLine");
+    const listenBtn = document.getElementById("listenBtn");
+    const quitBtn = document.getElementById("quitBtn");
+
+    let ws = null;
+    let micOn = false;
+    let companionState = "idle";
+    let audioEl = null;
+    let audioQueue = [];
+    let audioPlaying = false;
+    let playCtx = null;
+    let playSrc = null;
+    let audioUnlocked = false;
+    let audioCtx = null;
+    let mediaStream = null;
+    let processor = null;
+    let micActive = false;
+    let micMuteUntil = 0;
+
+    const SILENT_WAV =
+      "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+    function setState(s) {
+      companionState = s;
+      stateLabel.textContent = labels[s] || s;
+    }
+
+    function shouldSendMic() {
+      if (!micActive) return false;
+      if (audioPlaying || audioQueue.length) return false;
+      if (companionState === "thinking" || companionState === "speaking") return false;
+      if (Date.now() < micMuteUntil) return false;
+      return true;
+    }
+
+    function armEchoGuard(ms) {
+      micMuteUntil = Date.now() + Math.max(0, Number(ms) || 700);
+    }
+
+    async function unlockAudio() {
+      if (!audioEl) audioEl = new Audio();
+      audioEl.setAttribute("playsinline", "true");
+      try {
+        audioEl.src = SILENT_WAV;
+        await audioEl.play();
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      } catch (_) {}
+      try {
+        if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (playCtx.state === "suspended") await playCtx.resume();
+        audioUnlocked = true;
+      } catch (_) {
+        audioUnlocked = false;
+      }
+    }
+
+    function b64ToArrayBuffer(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    async function playViaContext(b64) {
+      if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (playCtx.state === "suspended") await playCtx.resume();
+      const buf = await playCtx.decodeAudioData(b64ToArrayBuffer(b64).slice(0));
+      await new Promise((resolve, reject) => {
+        try {
+          if (playSrc) { try { playSrc.stop(); } catch (_) {} playSrc = null; }
+          const src = playCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(playCtx.destination);
+          const ms = Math.min(20000, Math.ceil((buf.duration || 1) * 1000) + 800);
+          const timer = setTimeout(() => {
+            try { src.stop(); } catch (_) {}
+            playSrc = null;
+            resolve();
+          }, ms);
+          src.onended = () => {
+            clearTimeout(timer);
+            playSrc = null;
+            resolve();
+          };
+          playSrc = src;
+          src.start(0);
+        } catch (err) { reject(err); }
+      });
+    }
+
+    async function pumpAudio() {
+      if (audioPlaying) return;
+      const next = audioQueue.shift();
+      if (!next) return;
+      audioPlaying = true;
+      try {
+        if (!audioUnlocked) await unlockAudio();
+        await playViaContext(next);
+      } catch (err) {
+        console.error("audio play skipped", err);
+      } finally {
+        audioPlaying = false;
+        if (!audioQueue.length) armEchoGuard(700);
+        pumpAudio();
+      }
+    }
+
+    function stopPlayback() {
+      audioQueue = [];
+      audioPlaying = false;
+      if (playSrc) { try { playSrc.stop(); } catch (_) {} playSrc = null; }
+      if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+    }
+
+    function playWav(b64) {
+      audioQueue.push(b64);
+      armEchoGuard(1200);
+      void pumpAudio();
+    }
+
+    function downsampleTo16k(input, inputRate) {
+      if (inputRate === 16000) {
+        const out = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          const s = Math.max(-1, Math.min(1, input[i]));
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        return out;
+      }
+      const ratio = inputRate / 16000;
+      const newLen = Math.floor(input.length / ratio);
+      const out = new Int16Array(newLen);
+      for (let i = 0; i < newLen; i++) {
+        const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)] || 0));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
+    }
+
+    function pcmToBase64(pcm) {
+      const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function stopMic() {
+      micActive = false;
+      try {
+        processor && processor.disconnect();
+        mediaStream && mediaStream.getTracks().forEach((t) => t.stop());
+        audioCtx && audioCtx.close();
+      } catch (_) {}
+      processor = null;
+      mediaStream = null;
+      audioCtx = null;
+    }
+
+    async function startMic() {
+      stopMic();
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(mediaStream);
+      processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const mute = audioCtx.createGain();
+      mute.gain.value = 0;
+      processor.onaudioprocess = (ev) => {
+        if (!shouldSendMic() || !ws || ws.readyState !== 1) return;
+        const inputData = ev.inputBuffer.getChannelData(0);
+        const pcm = downsampleTo16k(inputData, audioCtx.sampleRate);
+        if (pcm.length) ws.send(JSON.stringify({ type: "audio", data: pcmToBase64(pcm) }));
+      };
+      source.connect(processor);
+      processor.connect(mute);
+      mute.connect(audioCtx.destination);
+      micActive = true;
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+    }
+
+    listenBtn.onclick = async () => {
+      if (micOn) {
+        stopMic();
+        micOn = false;
+        listenBtn.textContent = "开始聆听";
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "listen", on: false }));
+        return;
+      }
+      if (!ws || ws.readyState !== 1) return;
+      try {
+        await unlockAudio();
+        await startMic();
+        micOn = true;
+        listenBtn.textContent = "停止聆听";
+        ws.send(JSON.stringify({ type: "listen", on: true }));
+        audioQueue = [];
+      } catch (err) {
+        console.error(err);
+        stateLabel.textContent = "麦克风被拒绝";
+      }
+    };
+
+    quitBtn.onclick = () => {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.overlay) {
+        window.webkit.messageHandlers.overlay.postMessage({ type: "quit" });
+      } else {
+        window.close();
+      }
+    };
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const host = location.hostname || "127.0.0.1";
+      const port = location.port || "8765";
+      ws = new WebSocket(`${proto}://${host}:${port}/ws`);
+      ws.onopen = () => {
+        // App 默认 macOS 语音（悬浮窗无切换器）
+        localStorage.setItem("nc-stt", "mac-speech");
+        ws.send(JSON.stringify({ type: "stt", backend: "mac-speech" }));
+      };
+      ws.onclose = () => {
+        if (micOn) { stopMic(); micOn = false; listenBtn.textContent = "开始聆听"; }
+        ws = null;
+        setTimeout(connect, 2000);
+      };
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === "state" && msg.state) {
+          setState(msg.state);
+          // Recover client mic gate if server returned to listening.
+          if (msg.state === "listening" || msg.state === "idle") {
+            if (!audioQueue.length) audioPlaying = false;
+          }
+        }
+        if (msg.greeting) herLine.textContent = msg.greeting;
+        if (msg.type === "reply" && msg.text) herLine.textContent = msg.text;
+        if (msg.type === "transcript" && msg.role === "user") youLine.textContent = msg.text;
+        if (msg.type === "audio" && msg.data) playWav(msg.data);
+        if (msg.type === "echo_guard") armEchoGuard(msg.ms || 700);
+        if (msg.type === "barge_in") stopPlayback();
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>

@@ -218,6 +218,7 @@ class SileroStreamVAD:
         self,
         threshold: float = 0.5,
         min_silence_ms: int = 500,
+        speech_pad_ms: int = 30,
         sample_rate: int = 16000,
     ) -> None:
         import torch
@@ -234,7 +235,7 @@ class SileroStreamVAD:
             threshold=threshold,
             sampling_rate=sample_rate,
             min_silence_duration_ms=min_silence_ms,
-            speech_pad_ms=30,
+            speech_pad_ms=speech_pad_ms,
         )
         self._pending = np.zeros(0, dtype=np.float32)
         self._in_speech = False
@@ -432,21 +433,26 @@ class MLXLMEngine:
                     buf = MLXLMEngine._strip_thinking(buf) if "</think>" in buf.lower() else buf
                     while True:
                         m = re.search(r"[。！？!?\n]", buf)
-                        if not m:
-                            if len(buf) >= 10 and ("，" in buf or "," in buf):
-                                cut = max(buf.find("，"), buf.find(","))
-                                if cut >= 3:
-                                    piece = buf[: cut + 1].strip()
-                                    buf = buf[cut + 1 :]
-                                    if piece:
-                                        emit(piece)
-                                    continue
-                            break
-                        piece = buf[: m.end()].strip()
-                        buf = buf[m.end() :]
-                        if piece:
-                            emit(piece)
-                if buf.strip():
+                        if m:
+                            piece = buf[: m.end()].strip()
+                            buf = buf[m.end() :]
+                            if _speakable_piece(piece):
+                                emit(piece)
+                            continue
+                        # Soft split long clauses for TTS — avoid huge one-shot synth.
+                        if len(buf) >= 28:
+                            cut = -1
+                            for sep in ("，", ",", "；", ";", " "):
+                                cut = max(cut, buf.rfind(sep, 0, 28))
+                            if cut < 8:
+                                cut = 24
+                            piece = buf[: cut + 1].strip()
+                            buf = buf[cut + 1 :]
+                            if _speakable_piece(piece):
+                                emit(piece)
+                            continue
+                        break
+                if _speakable_piece(buf):
                     emit(buf.strip())
             except Exception:
                 try:
@@ -464,6 +470,18 @@ class MLXLMEngine:
             if item is None:
                 break
             yield item
+
+
+def _speakable_piece(text: str) -> bool:
+    s = (text or "").strip()
+    if len(s) < 1:
+        return False
+    if s in {"//", "/", "\\", "...", "…", "-", "—", "*", "#"}:
+        return False
+    if re.fullmatch(r"[\s/\\|\-_=·•#*]+", s):
+        return False
+    # Need at least one letter/digit/CJK char.
+    return bool(re.search(r"[\u4e00-\u9fffA-Za-z0-9]", s))
 
 
 _SENT_SPLIT = re.compile(r"[。！？!?\n]")
@@ -534,11 +552,25 @@ def _render_ack_wav(path: Path, phrase: str, config: dict[str, Any]) -> None:
 
 
 class OpenAICompatLLM:
+    """Adapter: session → companion.llm (guide: business never hardcodes keys)."""
+
     def __init__(self, cfg: dict[str, Any]) -> None:
+        from .llm import LlmConfigError, settings_from_cfg
+
         self.cfg = cfg
+        try:
+            self.settings = settings_from_cfg(cfg)
+        except LlmConfigError:
+            self.settings = None
 
     def warmup(self) -> None:
         return None
+
+    def _messages(self, system: str, history: list[Any]) -> list[dict[str, str]]:
+        messages = [{"role": "system", "content": system}]
+        for turn in history:
+            messages.append({"role": turn.role, "content": turn.text})
+        return messages
 
     async def complete(
         self,
@@ -548,36 +580,106 @@ class OpenAICompatLLM:
         max_tokens: int,
         temperature: float,
     ) -> str:
-        messages = [{"role": "system", "content": system}]
-        for turn in history:
-            messages.append({"role": turn.role, "content": turn.text})
-
-        payload = {
-            "model": self.cfg.get("model", "local"),
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-        headers = {"Authorization": f"Bearer {self.cfg.get('api_key', 'local')}"}
-        url = self.cfg.get("base_url", "http://127.0.0.1:8080/v1").rstrip("/") + "/chat/completions"
+        from .llm import LlmConfigError, chat, settings_from_cfg
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, headers=headers, timeout=120) as resp:
-                    if resp.status >= 400:
-                        body = await resp.text()
-                        return f"（llama.cpp 暂时不可用：{resp.status} {body[:120]}）"
-                    data = await resp.json()
-                    return data["choices"][0]["message"]["content"]
-        except Exception as exc:
-            mock = MockLLM()
-            _ = exc
-            return await mock.complete(
-                system=system,
-                history=history,
-                max_tokens=max_tokens,
+            settings = self.settings or settings_from_cfg(self.cfg)
+        except LlmConfigError as exc:
+            return f"（{exc}）"
+        try:
+            return await chat(
+                self._messages(system, history),
                 temperature=temperature,
+                max_tokens=max_tokens,
+                settings=settings,
             )
+        except Exception as exc:
+            print(f"[llm] chat failed: {exc!r}", flush=True)
+            return "我在听，云端这一下没接上。"
+
+    async def stream_sentences(
+        self,
+        *,
+        system: str,
+        history: list[Any],
+        max_tokens: int,
+        temperature: float,
+    ) -> AsyncIterator[str]:
+        from .llm import LlmConfigError, settings_from_cfg, stream_sentences
+
+        try:
+            settings = self.settings or settings_from_cfg(self.cfg)
+        except LlmConfigError:
+            yield "还没配密钥，先把 LLM_API_KEY 写进 .env.local。"
+            return
+        try:
+            async for piece in stream_sentences(
+                self._messages(system, history),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                settings=settings,
+            ):
+                yield piece
+        except Exception as exc:
+            print(f"[llm] stream failed: {exc!r}", flush=True)
+            yield "云端这一下没接上，我还在。"
+
+
+class MacSayTTS:
+    """System `say` → wav. Fast first audio; voice is OS Chinese voice."""
+
+    def __init__(self, voice: str = "Tingting", rate: int | None = None) -> None:
+        self.voice = voice or "Tingting"
+        self.rate = rate
+
+    def warmup(self) -> None:
+        from .memory import mark_loaded
+
+        mark_loaded("tts", path=f"say:{self.voice}", note="macos-say")
+
+    def _synthesize_file(self, text: str) -> str:
+        import subprocess
+
+        out_dir = Path(tempfile.mkdtemp(prefix="nc-say-"))
+        aiff = out_dir / "out.aiff"
+        wav = out_dir / "out.wav"
+        cmd = ["say", "-v", self.voice, "-o", str(aiff), text]
+        if self.rate is not None:
+            cmd[1:1] = ["-r", str(int(self.rate))]
+        subprocess.run(cmd, check=True, capture_output=True)
+        subprocess.run(
+            ["afconvert", "-f", "WAVE", "-d", "LEI16", str(aiff), str(wav)],
+            check=True,
+            capture_output=True,
+        )
+        aiff.unlink(missing_ok=True)
+        return str(wav)
+
+    async def synthesize(self, text: str) -> AsyncIterator[dict[str, Any]]:
+        text = (text or "").strip()
+        if not text:
+            return
+        if len(text) > 80:
+            text = text[:80].rstrip("，,、；; ") + "。"
+        try:
+            path = await asyncio.wait_for(
+                asyncio.to_thread(self._synthesize_file, text),
+                timeout=8.0,
+            )
+        except Exception as exc:
+            print(f"[tts] say failed: {exc!r} text={text!r}", flush=True)
+            return
+        data = Path(path).read_bytes()
+        Path(path).unlink(missing_ok=True)
+        try:
+            Path(path).parent.rmdir()
+        except OSError:
+            pass
+        yield {
+            "type": "audio",
+            "format": "wav",
+            "data": base64.b64encode(data).decode("ascii"),
+        }
 
 
 class Qwen3MLXTTS:
@@ -613,13 +715,32 @@ class Qwen3MLXTTS:
         mark_loaded("tts", path=self.model_path, note="qwen3-tts")
 
     async def synthesize(self, text: str) -> AsyncIterator[dict[str, Any]]:
-        path = await asyncio.to_thread(self._synthesize_file, text)
+        text = (text or "").strip()
+        if not text:
+            return
+        # Hard cap — long utterances often hang or OOM Qwen3-TTS on 16GB.
+        if len(text) > 36:
+            text = text[:36].rstrip("，,、；; ") + "。"
+        try:
+            path = await asyncio.wait_for(
+                asyncio.to_thread(self._synthesize_file, text),
+                timeout=20.0,
+            )
+        except Exception as exc:
+            print(f"[tts] synthesize failed: {exc!r} text={text!r}", flush=True)
+            # Soft tone so the turn can still finish and listening resumes.
+            out_dir = Path(tempfile.mkdtemp(prefix="nc-tts-"))
+            mock_path = out_dir / "fallback.wav"
+            self._write_tone(mock_path, text[:8] or "嗯")
+            path = str(mock_path)
         data = Path(path).read_bytes()
         Path(path).unlink(missing_ok=True)
         try:
             Path(path).parent.rmdir()
         except OSError:
             pass
+        if len(data) < 64:
+            return
         yield {
             "type": "audio",
             "format": "wav",
@@ -718,10 +839,15 @@ def create_stream_vad(config: dict[str, Any]) -> StreamVAD:
     vad_cfg = config.get("vad", {})
     threshold = float(vad_cfg.get("threshold", 0.5))
     min_silence_ms = int(vad_cfg.get("min_silence_ms", 500))
+    speech_pad_ms = int(vad_cfg.get("speech_pad_ms", 30))
     mode = config.get("mode", "mock")
     if mode == "local" and vad_cfg.get("backend", "silero") == "silero":
         try:
-            return SileroStreamVAD(threshold=threshold, min_silence_ms=min_silence_ms)
+            return SileroStreamVAD(
+                threshold=threshold,
+                min_silence_ms=min_silence_ms,
+                speech_pad_ms=speech_pad_ms,
+            )
         except Exception:
             return MockStreamVAD(threshold=0.015, min_silence_ms=min_silence_ms)
     return MockStreamVAD(threshold=0.015, min_silence_ms=min_silence_ms)
@@ -751,8 +877,8 @@ class SwitchableSTT:
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
-        raw = str(config.get("stt", {}).get("backend") or "mlx-whisper")
-        self.backend = raw if raw in {"mlx-whisper", "mac-speech"} else "mlx-whisper"
+        raw = str(config.get("stt", {}).get("backend") or "mac-speech")
+        self.backend = raw if raw in {"mlx-whisper", "mac-speech"} else "mac-speech"
         self._engines: dict[str, STTEngine] = {}
         self._errors: dict[str, str] = {}
 
@@ -847,8 +973,18 @@ def create_engines(config: dict[str, Any]) -> tuple[STTEngine, LLMEngine, TTSEng
         llm = OpenAICompatLLM(llm_cfg)
 
     # TTS
-    tts_backend = tts_cfg.get("backend", "qwen3-mlx")
-    if tts_backend == "qwen3-mlx":
+    tts_backend = tts_cfg.get("backend", "macos-say")
+    if tts_backend == "macos-say":
+        try:
+            rate = tts_cfg.get("rate")
+            tts = MacSayTTS(
+                voice=str(tts_cfg.get("voice") or "Tingting"),
+                rate=int(rate) if rate is not None else None,
+            )
+        except Exception as exc:
+            print(f"[tts] macos-say init failed ({exc}), using mock", flush=True)
+            tts = MockTTS()
+    elif tts_backend == "qwen3-mlx":
         tts_model = _resolve(tts_cfg.get("model", "models/Qwen3-TTS-0.6B-CustomVoice-8bit"))
         try:
             tts = Qwen3MLXTTS(

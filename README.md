@@ -1,66 +1,65 @@
 # newCompanion
 
-本地语音角色伴侣（Mac / Apple Silicon）：麦克风 → Silero VAD → Whisper STT → LLM → Qwen3-TTS，叠加半屏 / 右下角角色窗。
+本地 **Persistent Learning Companion**（Mac / Apple Silicon）：
+语音交互层 + 学习循环状态层。
 
-## 已安装（本机）
+北极星见 [`SPEC.md`](SPEC.md)：不是优化 AI 说了多少，而是它是否知道学习者下一步最该发生什么。
 
-| 组件 | 状态 | 位置 |
-|------|------|------|
-| uv + Python 3.12 | ✅ | `~/.local` + `pipeline/.venv` |
-| Silero VAD v5 | ✅ | pip `silero-vad` |
-| Whisper tiny (MLX) | ✅ | `models/whisper-tiny-mlx` (~80MB) |
-| LLM Qwen3-4B 4bit (MLX) | ✅ | `models/Qwen3-4B-4bit` (~2.3GB) |
-| llama.cpp server/cli | ✅ | `tools/llama.cpp/llama-b10375` |
-| LLM GGUF (llama.cpp) | ✅ | `models/gguf/qwen2.5-1.5b-instruct-q4_k_m.gguf` (~1GB) |
-| Qwen3-TTS 0.6B 8bit (MLX) | ✅ | `models/Qwen3-TTS-0.6B-CustomVoice-8bit` (~1.8GB) |
-| 角色立绘 | ✅ | `assets/character/portrait.png` / `ui/public/portrait.png` |
+## 两层架构
 
-面向 **16GB 统一内存**：默认懒加载（不在启动时同时载入全部模型）。
+1. **Interaction：** 麦克风 → VAD → STT → LLM → TTS → 角色窗
+2. **Learning loop：** `learning_state.yaml`（goal / task / evidence / next_action / intervention）
 
 ## 启动
 
+双击 **「小遥xiaoyao」**（自动启动管线 + 右下角悬浮窗），或：
+
 ```bash
-# 语音管线 + 角色窗（同一地址，便于麦克风授权）
+bash scripts/start-overlay.sh
+```
+
+只要管线：
+
+```bash
 bash scripts/start-pipeline.sh
-
-# 浏览器打开：
 open http://127.0.0.1:8765/
-# 或半屏窗：
-bash scripts/open-companion.sh half
 ```
 
-## macOS 语音识别（可选，更准）
+网页左上角 Memory → **学习循环** 可查看/编辑 Learning State。  
+说「我想搞懂 …」会激活学习会话。
 
-默认已切到 `stt.backend: mac-speech`（系统 Speech 框架）。
+## 云端 LLM（JudgmentOS / AI Builders 同款）
 
-第一次需要授权，请在 **终端.app**（不要用 Cursor）运行：
+完整步骤见 [`docs/newCompanion-llm-cloud-guide.md`](docs/newCompanion-llm-cloud-guide.md)。
 
 ```bash
-bash /Users/zeq/newCompanion/scripts/grant-mac-speech.sh
+cp env.example .env.local
+# 填 LLM_API_KEY
+bash scripts/llm-ping.sh   # 应看到 OK reply
 ```
 
-弹出「语音识别」时点允许。若没弹窗：系统设置 → 隐私与安全性 → 语音识别 → 勾选 **MacSTT**。
+统一入口：`pipeline/companion/llm.py`（`get_llm_settings` / `chat` / `stream_sentences`）。  
+默认 `grok-4-fast` @ `space.ai-builders.com`。TTS 默认系统 `say`（`Tingting`）。
 
-然后重启管线：`bash scripts/start-pipeline.sh`
+## iPhone
 
-若要切回 Whisper：`config.yaml` 里把 `stt.backend` 改成 `mlx-whisper`。
+```bash
+bash scripts/start-phone.sh
+```
 
+打开打印出的 `/phone` 地址。同一 Wi‑Fi 的 `http://局域网IP:8765/phone` 可打字；**麦克风需要 HTTPS**（脚本会尽量起 localtunnel）。
+
+## macOS 语音识别
+
+默认 `stt.backend: mac-speech`。首次授权请在 **终端.app** 运行：
+
+```bash
+bash scripts/grant-mac-speech.sh
+```
 
 ## 换立绘
 
-替换这两个文件为同名 PNG（建议竖图 3:4）：
+替换：
 
 - `assets/character/portrait.png`
 - `ui/public/portrait.png`
-
-## 目录
-
-```
-newCompanion/
-├── assets/character/   # 立绘
-├── models/             # 本地模型权重
-├── pipeline/           # FastAPI + WebSocket 管线
-├── scripts/            # 启动脚本
-├── tools/llama.cpp/    # llama-server / llama-cli
-└── ui/                 # 角色窗
-```

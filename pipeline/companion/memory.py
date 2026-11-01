@@ -67,7 +67,7 @@ def memory_snapshot(*, stt_backend: str | None = None) -> dict[str, Any]:
         stt_label = "Whisper STT"
 
     stt_path = PROJECT_ROOT / str(cfg.get("stt", {}).get("model", "models/whisper-base-mlx"))
-    llm_path = PROJECT_ROOT / str(cfg.get("llm", {}).get("model", "models/Qwen3-4B-4bit"))
+    llm_path = PROJECT_ROOT / str(cfg.get("llm", {}).get("model", "models/Qwen2.5-3B-Instruct-4bit"))
     tts_path = PROJECT_ROOT / str(cfg.get("tts", {}).get("model", "models/Qwen3-TTS-0.6B-CustomVoice-8bit"))
 
     catalog = [

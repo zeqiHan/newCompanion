@@ -20,13 +20,17 @@ audio:
 
 vad:
   backend: silero
-  threshold: 0.5
+  # 越高越「挑」：小声尾音/气音容易被当成静音 → 早截断；陪伴宜 0.35–0.45
+  threshold: 0.4
   min_speech_ms: 250
-  min_silence_ms: 200
+  # 连续静音多久才判「说完」。过短会把句中停顿截断；过长首响变慢。陪伴宜 900–1200
+  min_silence_ms: 1100
+  # 起止两端各多留一点音频，减轻吃字；不解决「过早 speech_end」，但 STT 更完整
+  speech_pad_ms: 180
 
 stt:
   # 默认引擎；网页端可随时切换 mlx-whisper / mac-speech
-  backend: mlx-whisper
+  backend: mac-speech
   model: models/whisper-base-mlx
   language: zh
   locale: zh-CN
@@ -35,24 +39,43 @@ stt:
     拥有: 永远
 
 llm:
-  backend: mlx-lm
-  model: models/Qwen3-4B-4bit
-  base_url: http://127.0.0.1:8080/v1
-  api_key: "local"
-  max_tokens: 80
+  # mlx-lm = 本地；openai-compat = 云端（judgment-os 同款）
+  # 若根目录 .env 有 LLM_API_KEY / AI_BUILDER_TOKEN，会自动切到 openai-compat
+  backend: openai-compat
+  model: grok-4-fast
+  base_url: https://space.ai-builders.com/backend/v1
+  api_key: ""
+  max_tokens: 72
   temperature: 0.7
-  # Qwen3 默认会“思考”；语音陪伴关掉以降低延迟
   enable_thinking: false
 
+# 学习循环层（Persistent Learning Companion）
+learning:
+  enabled: true
+  state_path: pipeline/companion/learning_state.yaml
+
+# 用户画像 + 长期摘要（可在网页 Memory 面板编辑）
+companion_memory:
+  path: pipeline/companion/user_memory.md
+  # 每隔 N 轮用户发言：自动重写「长期摘要」
+  summary_every_n_user_turns: 4
+  # 每隔 N 轮才把「长期摘要」塞进 prompt；画像仍每轮轻量带上
+  inject_summary_every_n_user_turns: 4
+
 tts:
-  backend: qwen3-mlx
-  model: models/Qwen3-TTS-0.6B-CustomVoice-8bit
-  voice: Serena
-  language: Chinese
-  # Lower temperature + fixed style → more consistent timbre across turns
-  temperature: 0.28
-  speed: 1.0
-  instruct: "温柔关的御姐声，沉稳、有支持感、会撒娇，语气温柔，气息稳定，像认真听你说话并很关心你"
+  # macos-say = 系统说（快）；qwen3-mlx = 本地音色（慢）
+  backend: macos-say
+  voice: Tingting
+  # optional speaking rate for `say -r`（约 180–220）
+  # rate: 200
+  # --- qwen3-mlx 备用 ---
+  # backend: qwen3-mlx
+  # model: models/Qwen3-TTS-0.6B-CustomVoice-8bit
+  # voice: Serena
+  # language: Chinese
+  # temperature: 0.28
+  # speed: 1.0
+  # instruct: "温柔关的御姐声，沉稳、有支持感、会撒娇，语气温柔，气息稳定，像认真听你说话并很关心你"
 
 latency:
   instant_ack: false
